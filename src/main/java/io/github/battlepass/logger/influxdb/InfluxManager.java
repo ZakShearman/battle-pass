@@ -35,7 +35,7 @@ public class InfluxManager {
         this.writeApi = this.fluxClient.getWriteApi();
 
         this.plugin.registerListeners(
-                new QuestProgressionListener(this)
+                new QuestProgressionListener(plugin, this)
         );
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
             this.plugin.runAsync(() -> {
