@@ -1,0 +1,5 @@
+influx-options:
+  url: 'http://localhost:9999'
+  token: 'your-username'
+  password: 'your-password'
+  bucket: 'your-bucket'

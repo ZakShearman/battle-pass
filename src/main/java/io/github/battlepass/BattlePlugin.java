@@ -19,6 +19,7 @@ import io.github.battlepass.loader.PassLoader;
 import io.github.battlepass.logger.DebugLogger;
 import io.github.battlepass.logger.Zone;
 import io.github.battlepass.logger.containers.LogContainer;
+import io.github.battlepass.logger.influxdb.InfluxManager;
 import io.github.battlepass.menus.MenuFactory;
 import io.github.battlepass.menus.service.MenuIllustrator;
 import io.github.battlepass.objects.user.User;
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class BattlePlugin extends SpigotPlugin {
     private static BattlePassApi api;
+    private InfluxManager influxManager;
     private DebugLogger debugLogger;
     private BattlePassApi localApi;
     private PassLoader passLoader;
@@ -93,6 +95,10 @@ public final class BattlePlugin extends SpigotPlugin {
 
     public BattlePassApi getLocalApi() {
         return this.localApi;
+    }
+
+    public InfluxManager getInfluxManager() {
+        return this.influxManager;
     }
 
     public DebugLogger getDebugLogger() {
@@ -192,6 +198,7 @@ public final class BattlePlugin extends SpigotPlugin {
         this.setStorageSettings();
         this.setSeasonStartDate();
 
+        this.influxManager = new InfluxManager(this);
         this.userStorage = new UserStorage(this);
         this.resetStorage = new DailyQuestStorage(this);
         this.rewardCache = new RewardCache(this);
@@ -265,6 +272,7 @@ public final class BattlePlugin extends SpigotPlugin {
         this.log(Zone.START, "Initializing config relations.");
         this.getConfigStore()
                 .config("settings", Path::resolve, true)
+                .config("influx-settings", Path::resolve, true)
                 .config("lang", Path::resolve, true)
                 .config("rewards", Path::resolve, true)
                 .config("portal-menu", (path, name) -> path.resolve("menus").resolve("portal"), true)
