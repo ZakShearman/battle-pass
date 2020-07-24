@@ -16,7 +16,7 @@ import java.util.logging.Level;
 
 public class InfluxManager {
     private final BattlePlugin plugin;
-    private final List<Point> pointsToSend = Lists.newArrayList();
+    private final List<Point> pointsToSend = Lists.newCopyOnWriteArrayList();
     private InfluxDBClient fluxClient;
     private WriteApi writeApi;
 
@@ -28,7 +28,7 @@ public class InfluxManager {
     private void start() {
         Config config = this.plugin.getConfig("influx-settings");
         String url = config.string("influx-options.url");
-        char[] token = config.string("influx-options.token").toCharArray();;
+        char[] token = config.string("influx-options.token").toCharArray();
         String organization = config.string("influx-options.organization");
         String bucket = config.string("influx-options.bucket");
         this.fluxClient = InfluxDBClientFactory.create(url, token, organization, bucket);
@@ -38,9 +38,11 @@ public class InfluxManager {
                 new QuestProgressionListener(this)
         );
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, () -> {
-            this.writeApi.writePoints(this.pointsToSend);
+            this.plugin.runAsync(() -> {
+                this.writeApi.writePoints(this.pointsToSend);
+                this.pointsToSend.clear();
+            });
             Bukkit.getLogger().log(Level.INFO, "Sent " + this.pointsToSend.size() + " data points to InfluxDB.");
-            this.pointsToSend.clear();
         }, 600, 600);
     }
 

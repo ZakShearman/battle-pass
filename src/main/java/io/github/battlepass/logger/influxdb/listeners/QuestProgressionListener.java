@@ -15,7 +15,8 @@ public class QuestProgressionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onQuestProgression(UserQuestProgressionEvent event) {
-        this.influxManager.addPoint(new Point()
+        this.influxManager.addPoint(Point
+                .measurement("quest-progression")
                 .addField("progress", event.getProgression())
                 .addTag("quest-type", event.getQuest().getType())
                 .addTag("quest-category", event.getQuest().getCategoryId()));

@@ -1,5 +1,5 @@
 influx-options:
   url: 'http://localhost:9999'
-  token: 'your-username'
-  password: 'your-password'
+  token: 'your-token'
+  organization: 'your-organization'
   bucket: 'your-bucket'
