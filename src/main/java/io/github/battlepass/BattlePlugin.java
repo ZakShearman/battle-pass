@@ -31,6 +31,8 @@ import io.github.battlepass.registry.QuestRegistry;
 import io.github.battlepass.storage.DailyQuestStorage;
 import io.github.battlepass.storage.UserStorage;
 import io.github.battlepass.v2.V2Detector;
+import io.github.battlepass.validator.DailyQuestValidator;
+import io.github.battlepass.validator.QuestValidator;
 import me.hyfe.simplespigot.config.Config;
 import me.hyfe.simplespigot.menu.listener.MenuListener;
 import me.hyfe.simplespigot.plugin.SpigotPlugin;
@@ -45,12 +47,13 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public final class BattlePlugin extends SpigotPlugin {
     private static BattlePassApi api;
     private InfluxManager influxManager;
     private DebugLogger debugLogger;
+    private DailyQuestValidator dailyQuestValidator;
+    private QuestValidator questValidator;
     private BattlePassApi localApi;
     private PassLoader passLoader;
     private UserCache userCache;
@@ -65,9 +68,10 @@ public final class BattlePlugin extends SpigotPlugin {
     private Storage<User> userStorage;
     private Storage<DailyQuestReset> resetStorage;
     private Cache<String, Map<Integer, Set<Action>>> actionCache;
+    private PlaceholderApiHook placeholderApiHook;
     private Lang lang;
     private ZonedDateTime seasonStartDate;
-    private AtomicInteger placeholderRuns = new AtomicInteger();
+    private int placeholderRuns = 0;
 
     @Override
     public void onEnable() {
@@ -79,6 +83,7 @@ public final class BattlePlugin extends SpigotPlugin {
         }
         this.configRelations();
         this.load();
+        this.placeholders();
     }
 
     @Override
@@ -103,6 +108,14 @@ public final class BattlePlugin extends SpigotPlugin {
 
     public DebugLogger getDebugLogger() {
         return this.debugLogger;
+    }
+
+    public QuestValidator getQuestValidator() {
+        return this.questValidator;
+    }
+
+    public DailyQuestValidator getDailyQuestValidator() {
+        return this.dailyQuestValidator;
     }
 
     public PassLoader getPassLoader() {
@@ -191,6 +204,12 @@ public final class BattlePlugin extends SpigotPlugin {
         this.lang.reload();
         this.unload();
         this.load();
+        if (this.placeholderApiHook == null) {
+            this.placeholderRuns = 0;
+            this.placeholders();
+        } else {
+            this.placeholderApiHook.reload(this);
+        }
         System.gc();
     }
 
@@ -199,6 +218,9 @@ public final class BattlePlugin extends SpigotPlugin {
         this.setSeasonStartDate();
 
         this.influxManager = new InfluxManager(this);
+        this.questValidator = new QuestValidator();
+        this.dailyQuestValidator = new DailyQuestValidator(this);
+
         this.userStorage = new UserStorage(this);
         this.resetStorage = new DailyQuestStorage(this);
         this.rewardCache = new RewardCache(this);
@@ -244,7 +266,6 @@ public final class BattlePlugin extends SpigotPlugin {
                     new BpaCommand(this),
                     new BpCommand(this)
             );
-            this.placeholders();
         });
     }
 
@@ -260,10 +281,12 @@ public final class BattlePlugin extends SpigotPlugin {
 
     private void placeholders() {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            new PlaceholderApiHook(this).register();
+            this.placeholderApiHook = new PlaceholderApiHook(this);
+            this.placeholderApiHook.register();
+            return;
         }
-        if (this.placeholderRuns.intValue() < 10) {
-            this.placeholderRuns.getAndIncrement();
+        if (this.placeholderApiHook == null && this.placeholderRuns < 10) {
+            this.placeholderRuns++;
             Bukkit.getScheduler().runTaskLater(this, this::placeholders, 100);
         }
     }

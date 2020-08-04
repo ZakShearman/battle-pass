@@ -30,6 +30,8 @@ public class QuestValidationStep {
     private final Set<String> blacklistedWorlds;
     private final boolean lockPreviousWeeks;
     private final boolean requirePreviousCompletion;
+    private final boolean disableDailiesOnSeasonEnd;
+    private final boolean disableNormalsOnSeasonEnd;
 
     public QuestValidationStep(BattlePlugin plugin) {
         Config settings = plugin.getConfig("settings");
@@ -43,10 +45,16 @@ public class QuestValidationStep {
         this.blacklistedWorlds = Sets.newHashSet(settings.stringList("blacklisted-worlds"));
         this.lockPreviousWeeks = settings.bool("current-season.unlocks.lock-previous-weeks");
         this.requirePreviousCompletion = settings.bool("current-season.unlocks.require-previous-completion");
+        this.disableDailiesOnSeasonEnd = settings.bool("season-finished.stop-daily-quests");
+        this.disableNormalsOnSeasonEnd = settings.bool("season-finished.stop-other-quests");
     }
 
     public void process(Player player, User user, String name, int progress, QuestResult questResult, Collection<Quest> quests, boolean overrideUpdate) {
         String playerWorld = player.getWorld().getName();
+        boolean seasonEnded = this.api.hasSeasonEnded();
+        if (seasonEnded && this.disableDailiesOnSeasonEnd && this.disableNormalsOnSeasonEnd) {
+            return;
+        }
         if ((!this.whitelistedWorlds.isEmpty() && !this.whitelistedWorlds.contains(playerWorld)) || this.blacklistedWorlds.contains(playerWorld)) {
             return;
         }
@@ -54,12 +62,17 @@ public class QuestValidationStep {
             if (!name.equalsIgnoreCase(quest.getType())) {
                 continue;
             }
+            if (seasonEnded) {
+                if ((quest.getCategoryId().contains("daily") && this.disableDailiesOnSeasonEnd) || (quest.getCategoryId().contains("week") && this.disableNormalsOnSeasonEnd)) {
+                    continue;
+                }
+            }
             Set<String> questWhitelistedWorlds = quest.getWhitelistedWorlds();
             if ((!questWhitelistedWorlds.isEmpty() && !questWhitelistedWorlds.contains(playerWorld)) || quest.getBlacklistedWorlds().contains(playerWorld)) {
                 continue;
             }
-            int questProgress = this.controller.getQuestProgress(user, quest);
-            if (overrideUpdate && questProgress == progress) {
+            int originalProgress = this.controller.getQuestProgress(user, quest);
+            if (overrideUpdate && originalProgress == progress) {
                 continue;
             }
             Variable subVariable = quest.getVariable();
@@ -93,7 +106,7 @@ public class QuestValidationStep {
                 this.plugin.runSync(() -> {
                     Bukkit.getPluginManager().callEvent(event);
                 });
-                event.ifNotCancelled(eventConsumer -> this.completionStep.process(user, quest, questProgress, eventConsumer.getProgression(), overrideUpdate));
+                event.ifNotCancelled(eventConsumer -> this.completionStep.process(user, quest, originalProgress, eventConsumer.getProgression(), overrideUpdate));
             }
         }
     }
